@@ -44,7 +44,6 @@ resource "aws_instance" "C1_MongoDB1_West" {
   }
 
   provisioner "chef" {
-
     environment     = "c1"
     run_list        = ["mongodb::default"]
     node_name       = "C1_MongoDB1_West_${self.id}"
@@ -204,17 +203,17 @@ resource "null_resource" "configure_mongo_replicaset_and_backup" {
 
   provisioner "chef" {
     attributes_json = <<-EOF
-    {
-        "mongodb": {
-            "replicaset_members": {
-                "0": "${aws_instance.C1_MongoDB1_West.private_ip}",
-                "1": "${aws_instance.C1_MongoDB2_West.private_ip}"
-            },
-            "replicaset_member_low_priority": {
-                "2": "${aws_instance.C1_MongoDB3_West.private_ip}"
+        {
+            "mongodb": {
+                "replicaset_members": {
+                    "0": "${aws_instance.C1_MongoDB1_West.private_ip}",
+                    "1": "${aws_instance.C1_MongoDB2_West.private_ip}"
+                },
+                "replicaset_member_low_priority": {
+                    "2": "${aws_instance.C1_MongoDB3_West.private_ip}"
+                }
             }
         }
-    }
     EOF
 
     environment     = "c1"
