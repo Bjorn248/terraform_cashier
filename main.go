@@ -19,6 +19,10 @@ func main() {
 		fmt.Printf("Error decoding HCL: '%s'", unmarshalErr)
 	}
 
+	masterResourceMap := map[string]map[string]int{
+		"aws_instance": map[string]int{"r3.xlarge": 0},
+	}
+
 	arrayOfResources := decodedOutput["resource"].([]map[string]interface{})
 
 	for _, resource := range arrayOfResources {
@@ -30,11 +34,26 @@ func main() {
 				fmt.Println("This is an AWS Instance")
 				resourceKeys := resource[key].([]map[string]interface{})
 				for resourceKey := range resourceKeys[0] {
-					fmt.Println("Instance Size: ", resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"])
+					instanceType := resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"].(string)
+					fmt.Println("Instance Type: ", instanceType)
+					countResource(masterResourceMap, key, instanceType)
 				}
 			default:
 				fmt.Println("resource type not recognized")
 			}
 		}
 	}
+	fmt.Printf("%+v\n", masterResourceMap)
 }
+
+// This doesn't need a pointer, or to return anything, because maps in go are always passed by reference
+func countResource(resourceMap map[string]map[string]int, resourceName string, resourceType string) {
+	if count := resourceMap[resourceName][resourceType]; count == 0 {
+		resourceMap[resourceName][resourceType] = 1
+	} else {
+		resourceMap[resourceName][resourceType] = count + 1
+	}
+}
+
+// func generateGraphQLQuery(masterResourceMap) string {
+// }
