@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type GraphQLHTTPRequestBody struct {
+type graphQLHTTPRequestBody struct {
 	Query         string `json:"query"`
 	Variables     string `json:"variables"`
 	OperationName string `json:"operationName"`
@@ -72,7 +72,7 @@ func countResource(resourceMap map[string]map[string]int, resourceName string, r
 
 func generateGraphQLQuery(masterResourceMap map[string]map[string]int) string {
 	graphQLQueryString := ""
-	requestBody := GraphQLHTTPRequestBody{
+	requestBody := graphQLHTTPRequestBody{
 		Query:         "",
 		Variables:     "",
 		OperationName: "",
