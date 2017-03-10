@@ -34,7 +34,7 @@ func main() {
 	}
 
 	masterResourceMap := map[string]map[string]int{
-		"aws_instance": map[string]int{"r3.xlarge": 0},
+		"aws_instance": {"r3.xlarge": 0},
 	}
 
 	arrayOfResources := decodedOutput["resource"].([]map[string]interface{})
