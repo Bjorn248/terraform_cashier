@@ -1,10 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/hcl"
 	"io/ioutil"
+	"strings"
 )
+
+type GraphQLHTTPRequestBody struct {
+	Query         string `json:"query"`
+	Variables     string `json:"variables"`
+	OperationName string `json:"operationName"`
+}
+
+var knownResourceTypes = map[string]string{
+	"aws_instance": "%s: AmazonEC2(Location:\"US East (N. Virginia)\", TermType:\"OnDemand\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"Shared\") {PricePerUnit Unit Currency}",
+}
+
+// const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
 func main() {
 	file, err := ioutil.ReadFile("./terraform_example.tf")
@@ -43,7 +57,8 @@ func main() {
 			}
 		}
 	}
-	fmt.Printf("%+v\n", masterResourceMap)
+	graphQLQueryString := generateGraphQLQuery(masterResourceMap)
+	fmt.Println(graphQLQueryString)
 }
 
 // This doesn't need a pointer, or to return anything, because maps in go are always passed by reference
@@ -55,5 +70,29 @@ func countResource(resourceMap map[string]map[string]int, resourceName string, r
 	}
 }
 
-// func generateGraphQLQuery(masterResourceMap) string {
-// }
+func generateGraphQLQuery(masterResourceMap map[string]map[string]int) string {
+	graphQLQueryString := ""
+	requestBody := GraphQLHTTPRequestBody{
+		Query:         "",
+		Variables:     "",
+		OperationName: "",
+	}
+	for resource := range masterResourceMap {
+		if queryStringTemplate, ok := knownResourceTypes[resource]; ok {
+			for resourceType, count := range masterResourceMap[resource] {
+				if count > 0 {
+					alias := strings.Replace(resourceType, ".", "_", -1)
+					graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, resourceType)
+				}
+			}
+		}
+	}
+	graphQLQueryString = "{" + graphQLQueryString + "}"
+	requestBody.Query = graphQLQueryString
+	requestBodyJSON, err := json.Marshal(requestBody)
+	if err != nil {
+		fmt.Println(err)
+		return "error"
+	}
+	return string(requestBodyJSON)
+}
