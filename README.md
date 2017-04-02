@@ -10,4 +10,4 @@ This is very much in a prototype state right now. Any advice or assistance is ap
 Variable Name | Description
 ------------ | -------------
 AWS_REGION | The Region for which you want to create a price estimation (e.g. `us-east-1`)
-GLOB_PATTERN | (Optional) Where cashier should find your terraform files (e.g. `*.tf`) Defaults to `*.tf`
+GLOB_PATTERN | (Optional) Where cashier should find your terraform files. Defaults to `*.tf`
