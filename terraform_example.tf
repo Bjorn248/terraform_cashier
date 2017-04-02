@@ -199,7 +199,7 @@ resource "aws_instance" "C1_MongoDB3_West" {
 resource "aws_instance" "Smaller_Instance" {
   # Custom AMI for Mongo Instances
   ami                    = "${lookup(var.Mongo_AMIs, var.primary_region)}"
-  instance_type          = "m3.large"
+  instance_type          = "m4.large"
   subnet_id              = "${aws_subnet.Dev_mongo_west.id}"
   key_name               = "REDACTED"
   vpc_security_group_ids = ["${aws_security_group.REDACTED_Dev_PoC_SG_West_Internal.id}"]
