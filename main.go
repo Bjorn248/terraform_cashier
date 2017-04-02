@@ -67,8 +67,12 @@ func main() {
 		log.Fatal("AWS_REGION not set")
 	}
 
-	// We want all the .tf files in the current directory
-	pattern := "*.tf"
+	pattern := ""
+	if os.Getenv("GLOB_PATTERN") == "" {
+		pattern = "*.tf"
+	} else {
+		pattern = os.Getenv("GLOB_PATTERN")
+	}
 
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
@@ -140,9 +144,13 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 		for resourceType, count := range resourceTypes {
 			alias := strings.Replace(resourceType, ".", "_", -1)
 			oldValue := resourceCostMap[resourceName]
-			price, err := strconv.ParseFloat(pricingData.Data[alias][0].PricePerUnit, 32)
-			if err != nil {
-				return resourceCostMap, err
+			var price float64
+			var err error
+			for _, element := range pricingData.Data[alias] {
+				price, err = strconv.ParseFloat(element.PricePerUnit, 32)
+				if err != nil {
+					return resourceCostMap, err
+				}
 			}
 			resourceCostMap[resourceName] = oldValue + (float32(price) * float32(count))
 		}
