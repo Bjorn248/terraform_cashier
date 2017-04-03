@@ -172,19 +172,25 @@ func processTerraformFile(masterResourceMap map[string]map[string]int, filePath 
 		fmt.Printf("Error decoding HCL: '%s'", unmarshalErr)
 	}
 
-	arrayOfResources := decodedOutput["resource"].([]map[string]interface{})
+	arrayOfResources, success := decodedOutput["resource"].([]map[string]interface{})
 
-	for _, resource := range arrayOfResources {
-		for key := range resource {
-			switch key {
-			case "aws_instance":
-				resourceKeys := resource[key].([]map[string]interface{})
-				for resourceKey := range resourceKeys[0] {
-					instanceType := resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"].(string)
-					countResource(masterResourceMap, key, instanceType)
+	if success == true {
+		for _, resource := range arrayOfResources {
+			for key := range resource {
+				switch key {
+				case "aws_instance":
+					resourceKeys, resourceKeysSuccess := resource[key].([]map[string]interface{})
+					if resourceKeysSuccess == true {
+						for resourceKey := range resourceKeys[0] {
+							instanceType, instanceTypeSuccess := resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"].(string)
+							if instanceTypeSuccess == true {
+								countResource(masterResourceMap, key, instanceType)
+							}
+						}
+					}
+				default:
+					fmt.Println("resource type not recognized: ", key)
 				}
-			default:
-				fmt.Println("resource type not recognized: ", key)
 			}
 		}
 	}
