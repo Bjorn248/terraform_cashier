@@ -162,14 +162,14 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 func processTerraformFile(masterResourceMap map[string]map[string]int, filePath string) {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: '%s'", err)
+		fmt.Printf("Error reading file: '%s'", err) // notest
 	}
 
 	var decodedOutput map[string]interface{}
 
 	unmarshalErr := hcl.Unmarshal(file, &decodedOutput)
 	if unmarshalErr != nil {
-		fmt.Printf("Error decoding HCL: '%s'", unmarshalErr)
+		fmt.Printf("Error decoding HCL: '%s'", unmarshalErr) // notest
 	}
 
 	arrayOfResources, success := decodedOutput["resource"].([]map[string]interface{})
