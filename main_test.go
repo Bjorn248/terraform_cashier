@@ -46,7 +46,7 @@ func TestCalculateInfraCost(t *testing.T) {
 	}
 
 	mockTerraformResources := map[string]map[string]int{
-		"aws_instance": map[string]int{
+		"aws_instance": {
 			"r3.xlarge": 3,
 			"m4.large":  1,
 			"r4.xlarge": 3,
@@ -86,7 +86,7 @@ func TestProcessTerraformFile(t *testing.T) {
 func TestGenerateGraphQLQuery(t *testing.T) {
 
 	mockTerraformResources := map[string]map[string]int{
-		"aws_instance": map[string]int{
+		"aws_instance": {
 			"r3.xlarge": 3,
 			"m4.large":  1,
 			"r4.xlarge": 3,
@@ -109,7 +109,7 @@ func TestGenerateGraphQLQuery(t *testing.T) {
 func TestCountResource(t *testing.T) {
 
 	mockTerraformResources := map[string]map[string]int{
-		"aws_instance": map[string]int{
+		"aws_instance": {
 			"r3.xlarge": 3,
 			"m4.large":  1,
 			"r4.xlarge": 3,
