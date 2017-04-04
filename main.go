@@ -62,6 +62,7 @@ var regionMap = map[string]string{
 const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
 func main() {
+	// notest
 
 	if os.Getenv("AWS_REGION") == "" {
 		log.Fatal("AWS_REGION not set")
