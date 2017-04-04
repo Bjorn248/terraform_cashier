@@ -80,7 +80,7 @@ func main() {
 	}
 
 	masterResourceMap := map[string]map[string]int{
-		"aws_instance": {"r3.xlarge": 0},
+		"aws_instance": {"r4.xlarge": 0},
 	}
 
 	for _, filePath := range matches {
@@ -91,7 +91,6 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error generating GraphQL Query: '%s'", err)
 	}
-	// fmt.Println("GraphQL Query String: ", graphQLQueryString)
 
 	// We want a high timeout because the lambda function
 	// needs at least 1 request to warm up. The first request
