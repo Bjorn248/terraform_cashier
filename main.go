@@ -95,14 +95,13 @@ func main() {
 	}
 
 	for _, filePath := range matches {
-		processTerraformFile(masterResourceMap, filePath)
+		masterResourceMap = processTerraformFile(masterResourceMap, filePath)
 	}
 
 	graphQLQueryString, err := generateGraphQLQuery(masterResourceMap)
 	if err != nil {
 		fmt.Printf("Error generating GraphQL Query: '%s'", err)
 	}
-
 	// We want a high timeout because the lambda function
 	// needs at least 1 request to warm up. The first request
 	// always takes a long time.
@@ -130,9 +129,9 @@ func main() {
 		log.Fatal("Error Unmarshalling Response Body", unmarshalErr)
 	}
 
-	resourceCostMap, err := calculateInfraCost(response, masterResourceMap)
+	resourceCostMapArray, err := calculateInfraCost(response, masterResourceMap)
 	if err != nil {
-		log.Fatal("Error generating resourceCostMap", err)
+		log.Fatal("Error generating []resourceCostMap", err)
 	}
 
 	var runningHours uint64
@@ -145,12 +144,17 @@ func main() {
 		}
 	}
 
-	fmt.Println("%#v", resourceCostMap)
-
-	for resource, hourlyCost := range resourceCostMap {
+	for _, resourceCostMap := range resourceCostMapArray {
 		fmt.Println("")
-		fmt.Println("Cost of", resourceTypesToFriendlyNames[resource])
-		fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", hourlyCost, hourlyCost*float32(runningHours), runningHours)
+		fmt.Println("Cost of", resourceTypesToFriendlyNames[resourceCostMap.Name])
+		fmt.Println("Breakdown by type:")
+		for resourceType, cost := range resourceCostMap.Resources {
+			if resourceType != "" {
+				fmt.Printf("%v: $%v\n", resourceType, cost)
+			}
+		}
+		fmt.Printf("Total Hourly: $%v\nTotal Monthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", resourceCostMap.Total, resourceCostMap.Total*float32(runningHours), runningHours)
+		// fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", hourlyCost, hourlyCost*float32(runningHours), runningHours)
 	}
 }
 
@@ -161,26 +165,32 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 
 	for resourceName, resourceTypes := range terraformResources.Resources {
 		var resourceSpecificCostMap resourceCostMap
-		// TODO Continue working from here
+		resourceSpecificCostMap.Name = resourceName
+		resourceSpecificCostMap.Resources = map[string]float32{"": 0.00}
 		for resourceType, count := range resourceTypes {
 			alias := strings.Replace(resourceType, ".", "_", -1)
-			oldValue := resourceSpecificCostMap.Resources[resourceName]
 			var price float64
 			var err error
 			for _, element := range pricingData.Data[alias] {
 				price, err = strconv.ParseFloat(element.PricePerUnit, 32)
 				if err != nil {
-					return []ReturnCostMap{}, err
+					return []resourceCostMap{}, err
 				}
 			}
-			resourceSpecificCostMap.Resources[resourceName] = oldValue + (float32(price) * float32(count))
+			resourceSpecificCostMap.Resources[resourceType] = (float32(price) * float32(count))
 		}
+		var runningTotalCost float32
+		for _, cost := range resourceSpecificCostMap.Resources {
+			runningTotalCost = resourceSpecificCostMap.Total
+			resourceSpecificCostMap.Total = runningTotalCost + cost
+		}
+		returnArray = append(returnArray, resourceSpecificCostMap)
 	}
-	return returnCostMap, nil
+	return returnArray, nil
 }
 
 // This takes a terraform file and adds it to the global resource map used to shape the GraphQL query
-func processTerraformFile(masterResourceMap resourceMap, filePath string) {
+func processTerraformFile(masterResourceMap resourceMap, filePath string) resourceMap {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf("Error reading file: '%s'", err) // notest
@@ -205,7 +215,7 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) {
 						for resourceKey := range resourceKeys[0] {
 							instanceType, instanceTypeSuccess := resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"].(string)
 							if instanceTypeSuccess == true {
-								countResource(masterResourceMap.Resources, key, instanceType)
+								masterResourceMap = countResource(masterResourceMap, key, instanceType)
 							}
 						}
 					}
@@ -215,15 +225,16 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) {
 			}
 		}
 	}
+	return masterResourceMap
 }
 
-// This doesn't need a pointer, or to return anything, because maps in go are always passed by reference
-func countResource(masterResourceMap resourceMap, resourceName string, resourceType string) {
+func countResource(masterResourceMap resourceMap, resourceName string, resourceType string) resourceMap {
 	if count := masterResourceMap.Resources[resourceName][resourceType]; count == 0 {
 		masterResourceMap.Resources[resourceName][resourceType] = 1
 	} else {
 		masterResourceMap.Resources[resourceName][resourceType] = count + 1
 	}
+	return masterResourceMap
 }
 
 func generateGraphQLQuery(masterResourceMap resourceMap) (string, error) {
