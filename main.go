@@ -125,10 +125,20 @@ func main() {
 		log.Fatal("Error generating resourceCostMap", err)
 	}
 
+	var runningHours uint64
+	if os.Getenv("RUNNING_HOURS") == "" {
+		runningHours = 730
+	} else {
+		runningHours, err = strconv.ParseUint(os.Getenv("RUNNING_HOURS"), 10, 16)
+		if err != nil {
+			log.Fatal("Error parsing int from RUNNING_HOURS environment variable", err)
+		}
+	}
+
 	for resource, hourlyCost := range resourceCostMap {
 		fmt.Println("")
 		fmt.Println("Cost of", resourceTypesToFriendlyNames[resource])
-		fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly Cost based on 730 hours on average being in a month\n", hourlyCost, hourlyCost*float32(730))
+		fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", hourlyCost, hourlyCost*float32(runningHours), runningHours)
 	}
 }
 
