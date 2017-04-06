@@ -31,6 +31,16 @@ type graphQLResponseData struct {
 	Currency     string `json:"Currency"`
 }
 
+type resourceCostMap struct {
+	Resources map[string]float32
+	Name      string
+	Total     float32
+}
+
+type resourceMap struct {
+	Resources map[string]map[string]int
+}
+
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
 	"aws_instance": "%s: AmazonEC2(Location:\"%s\", TermType:\"OnDemand\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"Shared\") {PricePerUnit Unit Currency}",
@@ -80,19 +90,18 @@ func main() {
 		fmt.Printf("Error reading files: '%s'", err)
 	}
 
-	masterResourceMap := map[string]map[string]int{
-		"aws_instance": {"r4.xlarge": 0},
+	masterResourceMap := resourceMap{
+		Resources: map[string]map[string]int{"aws_instance": {"r4.xlarge": 0}},
 	}
 
 	for _, filePath := range matches {
-		processTerraformFile(masterResourceMap, filePath)
+		masterResourceMap = processTerraformFile(masterResourceMap, filePath)
 	}
 
 	graphQLQueryString, err := generateGraphQLQuery(masterResourceMap)
 	if err != nil {
 		fmt.Printf("Error generating GraphQL Query: '%s'", err)
 	}
-
 	// We want a high timeout because the lambda function
 	// needs at least 1 request to warm up. The first request
 	// always takes a long time.
@@ -120,46 +129,68 @@ func main() {
 		log.Fatal("Error Unmarshalling Response Body", unmarshalErr)
 	}
 
-	resourceCostMap, err := calculateInfraCost(response, masterResourceMap)
+	resourceCostMapArray, err := calculateInfraCost(response, masterResourceMap)
 	if err != nil {
-		log.Fatal("Error generating resourceCostMap", err)
+		log.Fatal("Error generating []resourceCostMap", err)
 	}
 
-	for resource, hourlyCost := range resourceCostMap {
+	var runningHours uint64
+	if os.Getenv("RUNNING_HOURS") == "" {
+		runningHours = 730
+	} else {
+		runningHours, err = strconv.ParseUint(os.Getenv("RUNNING_HOURS"), 10, 16)
+		if err != nil {
+			log.Fatal("Error parsing int from RUNNING_HOURS environment variable", err)
+		}
+	}
+
+	for _, resourceCostMap := range resourceCostMapArray {
 		fmt.Println("")
-		fmt.Println("Cost of", resourceTypesToFriendlyNames[resource])
-		fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly Cost based on 730 hours on average being in a month\n", hourlyCost, hourlyCost*float32(730))
+		fmt.Println("Cost of", resourceTypesToFriendlyNames[resourceCostMap.Name])
+		fmt.Println("Breakdown by type:")
+		for resourceType, cost := range resourceCostMap.Resources {
+			if resourceType != "" && cost != 0.00 {
+				fmt.Printf("%v (%v): $%v\n", resourceType, masterResourceMap.Resources[resourceCostMap.Name][resourceType], cost)
+			}
+		}
+		fmt.Printf("Total Hourly: $%v\nTotal Monthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", resourceCostMap.Total, resourceCostMap.Total*float32(runningHours), runningHours)
+		// fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", hourlyCost, hourlyCost*float32(runningHours), runningHours)
 	}
 }
 
 // This function takes the pricing data and uses it to calculate the infrastructure cost by looking at the
 // map of terraform resources. Basically, we're just iterating over some maps here...
-func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources map[string]map[string]int) (map[string]float32, error) {
-	resourceCostMap := map[string]float32{
-		"aws_instance": 0.00,
-	}
+func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources resourceMap) ([]resourceCostMap, error) {
+	var returnArray []resourceCostMap
 
-	for resourceName, resourceTypes := range terraformResources {
-		resourceCostMap[resourceName] = 0.00
+	for resourceName, resourceTypes := range terraformResources.Resources {
+		var resourceSpecificCostMap resourceCostMap
+		resourceSpecificCostMap.Name = resourceName
+		resourceSpecificCostMap.Resources = map[string]float32{"": 0.00}
 		for resourceType, count := range resourceTypes {
 			alias := strings.Replace(resourceType, ".", "_", -1)
-			oldValue := resourceCostMap[resourceName]
 			var price float64
 			var err error
 			for _, element := range pricingData.Data[alias] {
 				price, err = strconv.ParseFloat(element.PricePerUnit, 32)
 				if err != nil {
-					return resourceCostMap, err
+					return []resourceCostMap{}, err
 				}
 			}
-			resourceCostMap[resourceName] = oldValue + (float32(price) * float32(count))
+			resourceSpecificCostMap.Resources[resourceType] = (float32(price) * float32(count))
 		}
+		var runningTotalCost float32
+		for _, cost := range resourceSpecificCostMap.Resources {
+			runningTotalCost = resourceSpecificCostMap.Total
+			resourceSpecificCostMap.Total = runningTotalCost + cost
+		}
+		returnArray = append(returnArray, resourceSpecificCostMap)
 	}
-	return resourceCostMap, nil
+	return returnArray, nil
 }
 
 // This takes a terraform file and adds it to the global resource map used to shape the GraphQL query
-func processTerraformFile(masterResourceMap map[string]map[string]int, filePath string) {
+func processTerraformFile(masterResourceMap resourceMap, filePath string) resourceMap {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf("Error reading file: '%s'", err) // notest
@@ -184,7 +215,7 @@ func processTerraformFile(masterResourceMap map[string]map[string]int, filePath 
 						for resourceKey := range resourceKeys[0] {
 							instanceType, instanceTypeSuccess := resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"].(string)
 							if instanceTypeSuccess == true {
-								countResource(masterResourceMap, key, instanceType)
+								masterResourceMap = countResource(masterResourceMap, key, instanceType)
 							}
 						}
 					}
@@ -194,27 +225,28 @@ func processTerraformFile(masterResourceMap map[string]map[string]int, filePath 
 			}
 		}
 	}
+	return masterResourceMap
 }
 
-// This doesn't need a pointer, or to return anything, because maps in go are always passed by reference
-func countResource(resourceMap map[string]map[string]int, resourceName string, resourceType string) {
-	if count := resourceMap[resourceName][resourceType]; count == 0 {
-		resourceMap[resourceName][resourceType] = 1
+func countResource(masterResourceMap resourceMap, resourceName string, resourceType string) resourceMap {
+	if count := masterResourceMap.Resources[resourceName][resourceType]; count == 0 {
+		masterResourceMap.Resources[resourceName][resourceType] = 1
 	} else {
-		resourceMap[resourceName][resourceType] = count + 1
+		masterResourceMap.Resources[resourceName][resourceType] = count + 1
 	}
+	return masterResourceMap
 }
 
-func generateGraphQLQuery(masterResourceMap map[string]map[string]int) (string, error) {
+func generateGraphQLQuery(masterResourceMap resourceMap) (string, error) {
 	graphQLQueryString := ""
 	requestBody := graphQLHTTPRequestBody{
 		Query:         "",
 		Variables:     "",
 		OperationName: "",
 	}
-	for resource := range masterResourceMap {
+	for resource := range masterResourceMap.Resources {
 		if queryStringTemplate, ok := knownResourceTypes[resource]; ok {
-			for resourceType, count := range masterResourceMap[resource] {
+			for resourceType, count := range masterResourceMap.Resources[resource] {
 				if count > 0 {
 					region := regionMap[os.Getenv("AWS_REGION")]
 					alias := strings.Replace(resourceType, ".", "_", -1)

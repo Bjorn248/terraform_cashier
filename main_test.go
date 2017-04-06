@@ -45,21 +45,23 @@ func TestCalculateInfraCost(t *testing.T) {
 		t.Error("Error Unmarshalling Mock Response Body", unmarshalErr)
 	}
 
-	mockTerraformResources := map[string]map[string]int{
-		"aws_instance": map[string]int{
-			"r3.xlarge": 3,
-			"m4.large":  1,
-			"r4.xlarge": 3,
-			"m4.xlarge": 1,
+	mockTerraformResources := resourceMap{
+		Resources: map[string]map[string]int{
+			"aws_instance": {
+				"r3.xlarge": 3,
+				"m4.large":  1,
+				"r4.xlarge": 3,
+				"m4.xlarge": 1,
+			},
 		},
 	}
 
-	var resourceCostMap map[string]float32
+	var resourceCostMapArray []resourceCostMap
 	var err error
 
-	resourceCostMap, err = calculateInfraCost(mockResponse, mockTerraformResources)
-	if resourceCostMap["aws_instance"] != 2.3792 {
-		t.Error("Expected 2.3792, got ", resourceCostMap["aws_instance"])
+	resourceCostMapArray, err = calculateInfraCost(mockResponse, mockTerraformResources)
+	if resourceCostMapArray[0].Total != 2.3792 {
+		t.Error("Expected 2.3792, got ", resourceCostMapArray[0].Total)
 	}
 	if err != nil {
 		t.Error("Something went wrong", err)
@@ -68,29 +70,35 @@ func TestCalculateInfraCost(t *testing.T) {
 
 func TestProcessTerraformFile(t *testing.T) {
 
-	mockResourceMap := map[string]map[string]int{
-		"aws_instance": {"r4.xlarge": 0},
+	mockTerraformResources := resourceMap{
+		Resources: map[string]map[string]int{
+			"aws_instance": {
+				"r4.xlarge": 0,
+			},
+		},
 	}
 
-	processTerraformFile(mockResourceMap, "terraform_example.tf")
-	processTerraformFile(mockResourceMap, "terraform_example_2.tf")
+	mockTerraformResources = processTerraformFile(mockTerraformResources, "terraform_example.tf")
+	mockTerraformResources = processTerraformFile(mockTerraformResources, "terraform_example_2.tf")
 
-	if mockResourceMap["aws_instance"]["r3.xlarge"] != 3 ||
-		mockResourceMap["aws_instance"]["m4.large"] != 1 ||
-		mockResourceMap["aws_instance"]["r4.xlarge"] != 3 ||
-		mockResourceMap["aws_instance"]["m4.xlarge"] != 1 {
-		t.Error("Did not get expected results", mockResourceMap)
+	if mockTerraformResources.Resources["aws_instance"]["r3.xlarge"] != 3 ||
+		mockTerraformResources.Resources["aws_instance"]["m4.large"] != 1 ||
+		mockTerraformResources.Resources["aws_instance"]["r4.xlarge"] != 3 ||
+		mockTerraformResources.Resources["aws_instance"]["m4.xlarge"] != 1 {
+		t.Error("Did not get expected results", mockTerraformResources)
 	}
 }
 
 func TestGenerateGraphQLQuery(t *testing.T) {
 
-	mockTerraformResources := map[string]map[string]int{
-		"aws_instance": map[string]int{
-			"r3.xlarge": 3,
-			"m4.large":  1,
-			"r4.xlarge": 3,
-			"m4.xlarge": 1,
+	mockTerraformResources := resourceMap{
+		Resources: map[string]map[string]int{
+			"aws_instance": {
+				"r3.xlarge": 3,
+				"m4.large":  1,
+				"r4.xlarge": 3,
+				"m4.xlarge": 1,
+			},
 		},
 	}
 
@@ -108,24 +116,26 @@ func TestGenerateGraphQLQuery(t *testing.T) {
 
 func TestCountResource(t *testing.T) {
 
-	mockTerraformResources := map[string]map[string]int{
-		"aws_instance": map[string]int{
-			"r3.xlarge": 3,
-			"m4.large":  1,
-			"r4.xlarge": 3,
-			"m4.xlarge": 1,
+	mockTerraformResources := resourceMap{
+		Resources: map[string]map[string]int{
+			"aws_instance": {
+				"r3.xlarge": 3,
+				"m4.large":  1,
+				"r4.xlarge": 3,
+				"m4.xlarge": 1,
+			},
 		},
 	}
 
-	countResource(mockTerraformResources, "aws_instance", "t2.small")
-	countResource(mockTerraformResources, "aws_instance", "t2.medium")
-	countResource(mockTerraformResources, "aws_instance", "m4.xlarge")
-	if mockTerraformResources["aws_instance"]["r3.xlarge"] != 3 ||
-		mockTerraformResources["aws_instance"]["m4.large"] != 1 ||
-		mockTerraformResources["aws_instance"]["r4.xlarge"] != 3 ||
-		mockTerraformResources["aws_instance"]["t2.small"] != 1 ||
-		mockTerraformResources["aws_instance"]["t2.medium"] != 1 ||
-		mockTerraformResources["aws_instance"]["m4.xlarge"] != 2 {
+	mockTerraformResources = countResource(mockTerraformResources, "aws_instance", "t2.small")
+	mockTerraformResources = countResource(mockTerraformResources, "aws_instance", "t2.medium")
+	mockTerraformResources = countResource(mockTerraformResources, "aws_instance", "m4.xlarge")
+	if mockTerraformResources.Resources["aws_instance"]["r3.xlarge"] != 3 ||
+		mockTerraformResources.Resources["aws_instance"]["m4.large"] != 1 ||
+		mockTerraformResources.Resources["aws_instance"]["r4.xlarge"] != 3 ||
+		mockTerraformResources.Resources["aws_instance"]["t2.small"] != 1 ||
+		mockTerraformResources.Resources["aws_instance"]["t2.medium"] != 1 ||
+		mockTerraformResources.Resources["aws_instance"]["m4.xlarge"] != 2 {
 		t.Error("Did not get expected results", mockTerraformResources)
 	}
 }
