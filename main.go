@@ -149,8 +149,8 @@ func main() {
 		fmt.Println("Cost of", resourceTypesToFriendlyNames[resourceCostMap.Name])
 		fmt.Println("Breakdown by type:")
 		for resourceType, cost := range resourceCostMap.Resources {
-			if resourceType != "" {
-				fmt.Printf("%v: $%v\n", resourceType, cost)
+			if resourceType != "" && cost != 0.00 {
+				fmt.Printf("%v (%v): $%v\n", resourceType, masterResourceMap.Resources[resourceCostMap.Name][resourceType], cost)
 			}
 		}
 		fmt.Printf("Total Hourly: $%v\nTotal Monthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", resourceCostMap.Total, resourceCostMap.Total*float32(runningHours), runningHours)
