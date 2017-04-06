@@ -13,3 +13,4 @@ Variable Name | Description
 ------------ | -------------
 AWS_REGION | The Region for which you want to create a price estimation (e.g. `us-east-1`)
 GLOB_PATTERN | (Optional) Where cashier should find your terraform files. Defaults to `*.tf`
+RUNNING_HOURS | (Optional) The number of running hours normally used in a month for your resources, on average. Defaults to 730 assuming 24/7 operation.
