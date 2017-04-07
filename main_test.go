@@ -70,6 +70,8 @@ func TestCalculateInfraCost(t *testing.T) {
 
 func TestProcessTerraformFile(t *testing.T) {
 
+	var err error
+
 	mockTerraformResources := resourceMap{
 		Resources: map[string]map[string]int{
 			"aws_instance": {
@@ -78,8 +80,14 @@ func TestProcessTerraformFile(t *testing.T) {
 		},
 	}
 
-	mockTerraformResources = processTerraformFile(mockTerraformResources, "terraform_example.tf")
-	mockTerraformResources = processTerraformFile(mockTerraformResources, "terraform_example_2.tf")
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "terraform_example.tf")
+	if err != nil {
+		t.Error("error processing files", err)
+	}
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "terraform_example_2.tf")
+	if err != nil {
+		t.Error("error processing files", err)
+	}
 
 	if mockTerraformResources.Resources["aws_instance"]["r3.xlarge"] != 3 ||
 		mockTerraformResources.Resources["aws_instance"]["m4.large"] != 1 ||

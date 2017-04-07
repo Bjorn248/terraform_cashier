@@ -98,7 +98,7 @@ func main() {
 	for _, filePath := range matches {
 		masterResourceMap, err = processTerraformFile(masterResourceMap, filePath)
 		if err != nil {
-			fmt.Printf("Error processing terraform file: '%s'", err)
+			fmt.Printf("Error processing terraform file: '%s'\n", err)
 		}
 	}
 
@@ -210,7 +210,7 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) (resou
 	arrayOfResources, success := decodedOutput["resource"].([]map[string]interface{})
 
 	if !success {
-		return masterResourceMap, errors.New("Could not parse terraform file")
+		return masterResourceMap, errors.New("Could not find resources in " + filePath)
 	}
 	for _, resource := range arrayOfResources {
 		for terraformResource := range resource {
@@ -221,11 +221,11 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) (resou
 						if instanceType, ok := keys[0][key].([]map[string]interface{})[0]["instance_type"].(string); ok {
 							masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType)
 						} else {
-							return masterResourceMap, errors.New("Could not parse terraform file")
+							return masterResourceMap, errors.New("Typecast error with " + filePath)
 						}
 					}
 				} else {
-					return masterResourceMap, errors.New("Could not parse terraform file")
+					return masterResourceMap, errors.New("Typecast error with " + filePath)
 				}
 			default:
 				fmt.Println("resource type not recognized: ", terraformResource)
