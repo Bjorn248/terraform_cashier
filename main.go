@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/hcl"
 	"io/ioutil"
@@ -95,7 +96,10 @@ func main() {
 	}
 
 	for _, filePath := range matches {
-		masterResourceMap = processTerraformFile(masterResourceMap, filePath)
+		masterResourceMap, err = processTerraformFile(masterResourceMap, filePath)
+		if err != nil {
+			fmt.Printf("Error processing terraform file: '%s'", err)
+		}
 	}
 
 	graphQLQueryString, err := generateGraphQLQuery(masterResourceMap)
@@ -190,7 +194,7 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 }
 
 // This takes a terraform file and adds it to the global resource map used to shape the GraphQL query
-func processTerraformFile(masterResourceMap resourceMap, filePath string) resourceMap {
+func processTerraformFile(masterResourceMap resourceMap, filePath string) (resourceMap, error) {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf("Error reading file: '%s'", err) // notest
@@ -205,27 +209,30 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) resour
 
 	arrayOfResources, success := decodedOutput["resource"].([]map[string]interface{})
 
-	if success == true {
-		for _, resource := range arrayOfResources {
-			for key := range resource {
-				switch key {
-				case "aws_instance":
-					resourceKeys, resourceKeysSuccess := resource[key].([]map[string]interface{})
-					if resourceKeysSuccess == true {
-						for resourceKey := range resourceKeys[0] {
-							instanceType, instanceTypeSuccess := resourceKeys[0][resourceKey].([]map[string]interface{})[0]["instance_type"].(string)
-							if instanceTypeSuccess == true {
-								masterResourceMap = countResource(masterResourceMap, key, instanceType)
-							}
+	if !success {
+		return masterResourceMap, errors.New("Could not parse terraform file")
+	}
+	for _, resource := range arrayOfResources {
+		for terraformResource := range resource {
+			switch terraformResource {
+			case "aws_instance":
+				if keys, ok := resource[terraformResource].([]map[string]interface{}); ok {
+					for key := range keys[0] {
+						if instanceType, ok := keys[0][key].([]map[string]interface{})[0]["instance_type"].(string); ok {
+							masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType)
+						} else {
+							return masterResourceMap, errors.New("Could not parse terraform file")
 						}
 					}
-				default:
-					fmt.Println("resource type not recognized: ", key)
+				} else {
+					return masterResourceMap, errors.New("Could not parse terraform file")
 				}
+			default:
+				fmt.Println("resource type not recognized: ", terraformResource)
 			}
 		}
 	}
-	return masterResourceMap
+	return masterResourceMap, nil
 }
 
 func countResource(masterResourceMap resourceMap, resourceName string, resourceType string) resourceMap {
