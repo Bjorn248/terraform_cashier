@@ -44,11 +44,13 @@ type resourceMap struct {
 
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
-	"aws_instance": "%s: AmazonEC2(Location:\"%s\", TermType:\"OnDemand\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"Shared\") {PricePerUnit Unit Currency}",
+	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"Shared\") {PricePerUnit Unit Currency}",
+	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", DeploymentOption:\"%s\", DatabaseEngine:\"%s\") {PricePerUnit Unit Currency}",
 }
 
 var resourceTypesToFriendlyNames = map[string]string{
-	"aws_instance": "EC2",
+	"aws_instance":    "EC2",
+	"aws_db_instance": "RDS",
 }
 
 var regionMap = map[string]string{
@@ -92,7 +94,10 @@ func main() {
 	}
 
 	masterResourceMap := resourceMap{
-		Resources: map[string]map[string]int{"aws_instance": {"r4.xlarge": 0}},
+		Resources: map[string]map[string]int{
+			"aws_instance":    {"r4.xlarge": 0},
+			"aws_db_instance": {"db.r4.xlarge,mysql,Single-AZ": 0},
+		},
 	}
 
 	for _, filePath := range matches {
@@ -148,6 +153,8 @@ func main() {
 		}
 	}
 
+	var totalMonthlyCost float32
+
 	for _, resourceCostMap := range resourceCostMapArray {
 		fmt.Println("")
 		fmt.Println("Cost of", resourceTypesToFriendlyNames[resourceCostMap.Name])
@@ -158,8 +165,11 @@ func main() {
 			}
 		}
 		fmt.Printf("Total Hourly: $%v\nTotal Monthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", resourceCostMap.Total, resourceCostMap.Total*float32(runningHours), runningHours)
-		// fmt.Printf("Hourly: $%v\nMonthly: $%v\nNote: Monthly cost based on %v runtime hours per month\n", hourlyCost, hourlyCost*float32(runningHours), runningHours)
+
+		totalMonthlyCost = totalMonthlyCost + resourceCostMap.Total*float32(runningHours)
 	}
+	fmt.Println("")
+	fmt.Printf("Total Monthly Cost of All Services: %v\n", totalMonthlyCost)
 }
 
 // This function takes the pricing data and uses it to calculate the infrastructure cost by looking at the
@@ -172,7 +182,7 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 		resourceSpecificCostMap.Name = resourceName
 		resourceSpecificCostMap.Resources = map[string]float32{"": 0.00}
 		for resourceType, count := range resourceTypes {
-			alias := strings.Replace(resourceType, ".", "_", -1)
+			alias := strings.Replace(strings.Split(resourceType, ",")[0], ".", "_", -1)
 			var price float64
 			var err error
 			for _, element := range pricingData.Data[alias] {
@@ -216,13 +226,19 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) (resou
 		for terraformResource := range resource {
 			switch terraformResource {
 			case "aws_instance":
-				if keys, ok := resource[terraformResource].([]map[string]interface{}); ok {
-					for key := range keys[0] {
-						if instanceType, ok := keys[0][key].([]map[string]interface{})[0]["instance_type"].(string); ok {
-							masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType)
-						} else {
-							return masterResourceMap, errors.New("Typecast error with " + filePath)
-						}
+				if ec2, ok := resource[terraformResource].([]map[string]interface{}); ok {
+					masterResourceMap, err = processEc2Instance(ec2, masterResourceMap, terraformResource)
+					if err != nil {
+						return masterResourceMap, err
+					}
+				} else {
+					return masterResourceMap, errors.New("Typecast error with " + filePath)
+				}
+			case "aws_db_instance":
+				if rds, ok := resource[terraformResource].([]map[string]interface{}); ok {
+					masterResourceMap, err = processRdsInstance(rds, masterResourceMap, terraformResource)
+					if err != nil {
+						return masterResourceMap, err
 					}
 				} else {
 					return masterResourceMap, errors.New("Typecast error with " + filePath)
@@ -230,6 +246,48 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) (resou
 			default:
 				fmt.Println("resource type not recognized: ", terraformResource)
 			}
+		}
+	}
+	return masterResourceMap, nil
+}
+
+func processEc2Instance(ec2 []map[string]interface{}, masterResourceMap resourceMap, terraformResource string) (resourceMap, error) {
+	for key := range ec2[0] {
+		if instanceType, ok := ec2[0][key].([]map[string]interface{})[0]["instance_type"].(string); ok {
+			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType)
+		} else {
+			return masterResourceMap, errors.New("Typecast error for ec2 instance")
+		}
+	}
+	return masterResourceMap, nil
+}
+
+func processRdsInstance(rds []map[string]interface{}, masterResourceMap resourceMap, terraformResource string) (resourceMap, error) {
+	for key := range rds[0] {
+		if rdsInstance, ok := rds[0][key].([]map[string]interface{}); ok {
+			var instanceClass, engine, deploymentOption string
+			var ok bool
+			instanceClass, ok = rdsInstance[0]["instance_class"].(string)
+			if !ok {
+				instanceClass = "db.t2.micro"
+			}
+			engine, ok = rdsInstance[0]["engine"].(string)
+			if !ok {
+				engine = "mariadb"
+			}
+			deploymentOption, ok = rdsInstance[0]["multi_az"].(string)
+			if !ok {
+				deploymentOption = "Single-AZ"
+			} else {
+				if deploymentOption == "true" {
+					deploymentOption = "Multi-AZ"
+				} else {
+					deploymentOption = "Single-AZ"
+				}
+			}
+			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceClass+","+engine+","+deploymentOption)
+		} else {
+			return masterResourceMap, errors.New("Typecast error for rds instance")
 		}
 	}
 	return masterResourceMap, nil
@@ -256,8 +314,19 @@ func generateGraphQLQuery(masterResourceMap resourceMap) (string, error) {
 			for resourceType, count := range masterResourceMap.Resources[resource] {
 				if count > 0 {
 					region := regionMap[os.Getenv("AWS_REGION")]
-					alias := strings.Replace(resourceType, ".", "_", -1)
-					graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, resourceType)
+					alias := strings.Replace(strings.Split(resourceType, ",")[0], ".", "_", -1)
+					switch resource {
+					case "aws_instance":
+						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", resourceType)
+					case "aws_db_instance":
+						rdsInstance := strings.Split(resourceType, ",")
+						instanceClass := rdsInstance[0]
+						engine := rdsInstance[1]
+						deploymentOption := rdsInstance[2]
+						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", instanceClass, deploymentOption, engine)
+					default:
+						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", resourceType)
+					}
 				}
 			}
 		}

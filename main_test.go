@@ -77,6 +77,9 @@ func TestProcessTerraformFile(t *testing.T) {
 			"aws_instance": {
 				"r4.xlarge": 0,
 			},
+			"aws_db_instance": {
+				"db.t2.large,mysql,Single-AZ": 0,
+			},
 		},
 	}
 
@@ -85,6 +88,11 @@ func TestProcessTerraformFile(t *testing.T) {
 		t.Error("error processing files", err)
 	}
 	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "terraform_example_2.tf")
+	if err != nil {
+		t.Error("error processing files", err)
+	}
+
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "rds.tf")
 	if err != nil {
 		t.Error("error processing files", err)
 	}
