@@ -91,6 +91,14 @@ func TestProcessTerraformFile(t *testing.T) {
 	if err != nil {
 		t.Error("error processing files", err)
 	}
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "variables.tf")
+	if err.Error() != "Could not find resources in variables.tf" {
+		t.Error("Expected a different error string", err)
+	}
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "rds.tf")
+	if err != nil {
+		t.Error("error processing rds.tf", err)
+	}
 
 	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "rds.tf")
 	if err != nil {
