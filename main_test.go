@@ -53,6 +53,10 @@ func TestCalculateInfraCost(t *testing.T) {
 				"r4.xlarge": 3,
 				"m4.xlarge": 1,
 			},
+			"aws_db_instance": {
+				"db.r4.xlarge,mysql,Single-AZ": 3,
+				"db.t2.large,mysql,Multi-AZ":   1,
+			},
 		},
 	}
 
@@ -100,15 +104,11 @@ func TestProcessTerraformFile(t *testing.T) {
 		t.Error("error processing rds.tf", err)
 	}
 
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "rds.tf")
-	if err != nil {
-		t.Error("error processing files", err)
-	}
-
 	if mockTerraformResources.Resources["aws_instance"]["r3.xlarge"] != 3 ||
 		mockTerraformResources.Resources["aws_instance"]["m4.large"] != 1 ||
 		mockTerraformResources.Resources["aws_instance"]["r4.xlarge"] != 3 ||
-		mockTerraformResources.Resources["aws_instance"]["m4.xlarge"] != 1 {
+		mockTerraformResources.Resources["aws_instance"]["m4.xlarge"] != 1 ||
+		mockTerraformResources.Resources["aws_db_instance"]["db.t2.large,mysql,Single-AZ"] != 3 {
 		t.Error("Did not get expected results", mockTerraformResources)
 	}
 }
@@ -122,6 +122,10 @@ func TestGenerateGraphQLQuery(t *testing.T) {
 				"m4.large":  1,
 				"r4.xlarge": 3,
 				"m4.xlarge": 1,
+			},
+			"aws_db_instance": {
+				"db.r4.xlarge,mysql,Single-AZ": 3,
+				"db.t2.large,mysql,Multi-AZ":   1,
 			},
 		},
 	}
@@ -147,6 +151,10 @@ func TestCountResource(t *testing.T) {
 				"m4.large":  1,
 				"r4.xlarge": 3,
 				"m4.xlarge": 1,
+			},
+			"aws_db_instance": {
+				"db.r4.xlarge,mysql,Single-AZ": 3,
+				"db.t2.large,mysql,Multi-AZ":   1,
 			},
 		},
 	}
