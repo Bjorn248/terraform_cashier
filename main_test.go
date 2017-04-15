@@ -108,8 +108,9 @@ func TestProcessTerraformFile(t *testing.T) {
 		mockTerraformResources.Resources["aws_instance"]["m4.large"] != 1 ||
 		mockTerraformResources.Resources["aws_instance"]["r4.xlarge"] != 3 ||
 		mockTerraformResources.Resources["aws_instance"]["m4.xlarge"] != 1 ||
-		mockTerraformResources.Resources["aws_db_instance"]["db.t2.large,mysql,Single-AZ"] != 3 {
-		t.Error("Did not get expected results", mockTerraformResources)
+		mockTerraformResources.Resources["aws_db_instance"]["db.t2.large,mysql,Multi-AZ"] != 1 ||
+		mockTerraformResources.Resources["aws_db_instance"]["db.t2.large,mysql,Single-AZ"] != 2 {
+		t.Error("Didn't not get expected results", mockTerraformResources)
 	}
 }
 

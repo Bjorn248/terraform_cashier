@@ -266,24 +266,13 @@ func processRdsInstance(rds []map[string]interface{}, masterResourceMap resource
 	for key := range rds[0] {
 		if rdsInstance, ok := rds[0][key].([]map[string]interface{}); ok {
 			var instanceClass, engine, deploymentOption string
-			var ok bool
-			instanceClass, ok = rdsInstance[0]["instance_class"].(string)
-			if !ok {
-				instanceClass = "db.t2.micro"
-			}
-			engine, ok = rdsInstance[0]["engine"].(string)
-			if !ok {
-				engine = "mariadb"
-			}
-			deploymentOption, ok = rdsInstance[0]["multi_az"].(string)
-			if !ok {
-				deploymentOption = "Single-AZ"
+			instanceClass = fmt.Sprint(rdsInstance[0]["instance_class"])
+			engine = fmt.Sprint(rdsInstance[0]["engine"])
+			deploymentOption = fmt.Sprint(rdsInstance[0]["multi_az"])
+			if deploymentOption == "true" {
+				deploymentOption = "Multi-AZ"
 			} else {
-				if deploymentOption == "true" {
-					deploymentOption = "Multi-AZ"
-				} else {
-					deploymentOption = "Single-AZ"
-				}
+				deploymentOption = "Single-AZ"
 			}
 			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceClass+","+engine+","+deploymentOption)
 		} else {
