@@ -87,29 +87,29 @@ func TestProcessTerraformFile(t *testing.T) {
 		},
 	}
 
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "terraform_example.tf")
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/terraform_example.tf")
 	if err != nil {
 		t.Error("error processing files", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "terraform_example_2.tf")
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/terraform_example_2.tf")
 	if err != nil {
 		t.Error("error processing files", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "variables.tf")
-	if err.Error() != "Could not find resources in variables.tf" {
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/variables.tf")
+	if err.Error() != "Could not find resources in test/variables.tf" {
 		t.Error("Expected a different error string", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "does_not_exist.tf")
-	if err.Error() != "open does_not_exist.tf: no such file or directory" {
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/does_not_exist.tf")
+	if err.Error() != "open test/does_not_exist.tf: no such file or directory" {
 		t.Error("Expected a different error string", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "bad_formatting.tf")
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/bad_formatting.tf")
 	if err.Error() != "At 2:17: literal not terminated" {
 		t.Error("Expected a different error string", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "rds.tf")
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/rds.tf")
 	if err != nil {
-		t.Error("error processing rds.tf", err)
+		t.Error("error processing test/rds.tf", err)
 	}
 
 	if mockTerraformResources.Resources["aws_instance"]["r3.xlarge"] != 3 ||
