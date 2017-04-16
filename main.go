@@ -182,7 +182,12 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 		resourceSpecificCostMap.Name = resourceName
 		resourceSpecificCostMap.Resources = map[string]float32{"": 0.00}
 		for resourceType, count := range resourceTypes {
-			alias := strings.Replace(strings.Split(resourceType, ",")[0], ".", "_", -1)
+			var alias string
+			if resourceName == "aws_db_instance" {
+				alias = strings.Replace(strings.Replace(strings.Replace(resourceType, ".", "_", -1), ",", "_", -1), "-", "_", -1)
+			} else {
+				alias = strings.Replace(resourceType, ".", "_", -1)
+			}
 			var price float64
 			var err error
 			for _, element := range pricingData.Data[alias] {
@@ -207,14 +212,15 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 func processTerraformFile(masterResourceMap resourceMap, filePath string) (resourceMap, error) {
 	file, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: '%s'", err) // notest
+		return masterResourceMap, err
 	}
 
 	var decodedOutput map[string]interface{}
 
 	unmarshalErr := hcl.Unmarshal(file, &decodedOutput)
 	if unmarshalErr != nil {
-		fmt.Printf("Error decoding HCL: '%s'", unmarshalErr) // notest
+		fmt.Println("Error decoding HCL")
+		return masterResourceMap, unmarshalErr
 	}
 
 	arrayOfResources, success := decodedOutput["resource"].([]map[string]interface{})
@@ -303,7 +309,12 @@ func generateGraphQLQuery(masterResourceMap resourceMap) (string, error) {
 			for resourceType, count := range masterResourceMap.Resources[resource] {
 				if count > 0 {
 					region := regionMap[os.Getenv("AWS_REGION")]
-					alias := strings.Replace(strings.Split(resourceType, ",")[0], ".", "_", -1)
+					var alias string
+					if resource == "aws_db_instance" {
+						alias = strings.Replace(strings.Replace(strings.Replace(resourceType, ".", "_", -1), ",", "_", -1), "-", "_", -1)
+					} else {
+						alias = strings.Replace(resourceType, ".", "_", -1)
+					}
 					switch resource {
 					case "aws_instance":
 						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", resourceType)
@@ -313,8 +324,6 @@ func generateGraphQLQuery(masterResourceMap resourceMap) (string, error) {
 						engine := rdsInstance[1]
 						deploymentOption := rdsInstance[2]
 						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", instanceClass, deploymentOption, engine)
-					default:
-						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", resourceType)
 					}
 				}
 			}

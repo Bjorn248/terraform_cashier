@@ -99,6 +99,14 @@ func TestProcessTerraformFile(t *testing.T) {
 	if err.Error() != "Could not find resources in variables.tf" {
 		t.Error("Expected a different error string", err)
 	}
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "does_not_exist.tf")
+	if err.Error() != "open does_not_exist.tf: no such file or directory" {
+		t.Error("Expected a different error string", err)
+	}
+	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "bad_formatting.tf")
+	if err.Error() != "At 2:17: literal not terminated" {
+		t.Error("Expected a different error string", err)
+	}
 	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "rds.tf")
 	if err != nil {
 		t.Error("error processing rds.tf", err)
