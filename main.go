@@ -44,7 +44,7 @@ type resourceMap struct {
 
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
-	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"Shared\") {PricePerUnit Unit Currency}",
+	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
 	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", DeploymentOption:\"%s\", DatabaseEngine:\"%s\") {PricePerUnit Unit Currency}",
 }
 
@@ -183,11 +183,7 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 		resourceSpecificCostMap.Resources = map[string]float32{"": 0.00}
 		for resourceType, count := range resourceTypes {
 			var alias string
-			if resourceName == "aws_db_instance" {
-				alias = strings.Replace(strings.Replace(strings.Replace(resourceType, ".", "_", -1), ",", "_", -1), "-", "_", -1)
-			} else {
-				alias = strings.Replace(resourceType, ".", "_", -1)
-			}
+			alias = strings.Replace(strings.Replace(strings.Replace(resourceType, ".", "_", -1), ",", "_", -1), "-", "_", -1)
 			var price float64
 			var err error
 			for _, element := range pricingData.Data[alias] {
@@ -259,8 +255,18 @@ func processTerraformFile(masterResourceMap resourceMap, filePath string) (resou
 
 func processEc2Instance(ec2 []map[string]interface{}, masterResourceMap resourceMap, terraformResource string) (resourceMap, error) {
 	for key := range ec2[0] {
-		if instanceType, ok := ec2[0][key].([]map[string]interface{})[0]["instance_type"].(string); ok {
-			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType)
+		if ec2Instance, ok := ec2[0][key].([]map[string]interface{}); ok {
+			var instanceType, tenancy string
+			instanceType = fmt.Sprint(ec2Instance[0]["instance_type"])
+			tenancy = fmt.Sprint(ec2Instance[0]["tenancy"])
+			// NOTE Host tenancy is currently not supported
+			// If there is a need, it can be implemented
+			if tenancy == "dedicated" {
+				tenancy = "Dedicated"
+			} else {
+				tenancy = "Shared"
+			}
+			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType+","+tenancy)
 		} else {
 			return masterResourceMap, errors.New("Typecast error for ec2 instance")
 		}
@@ -310,14 +316,13 @@ func generateGraphQLQuery(masterResourceMap resourceMap) (string, error) {
 				if count > 0 {
 					region := regionMap[os.Getenv("AWS_REGION")]
 					var alias string
-					if resource == "aws_db_instance" {
-						alias = strings.Replace(strings.Replace(strings.Replace(resourceType, ".", "_", -1), ",", "_", -1), "-", "_", -1)
-					} else {
-						alias = strings.Replace(resourceType, ".", "_", -1)
-					}
+					alias = strings.Replace(strings.Replace(strings.Replace(resourceType, ".", "_", -1), ",", "_", -1), "-", "_", -1)
 					switch resource {
 					case "aws_instance":
-						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", resourceType)
+						ec2Instance := strings.Split(resourceType, ",")
+						instanceType := ec2Instance[0]
+						tenancy := ec2Instance[1]
+						graphQLQueryString = graphQLQueryString + " " + fmt.Sprintf(queryStringTemplate, alias, region, "OnDemand", instanceType, tenancy)
 					case "aws_db_instance":
 						rdsInstance := strings.Split(resourceType, ",")
 						instanceClass := rdsInstance[0]
