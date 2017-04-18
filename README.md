@@ -4,6 +4,8 @@
 [![Build Status](https://travis-ci.org/BjornTwitchBot/terraform_cashier.svg?branch=master)](https://travis-ci.org/BjornTwitchBot/terraform_cashier)
 [![codecov](https://codecov.io/gh/BjornTwitchBot/terraform_cashier/branch/master/graph/badge.svg)](https://codecov.io/gh/BjornTwitchBot/terraform_cashier)
 
+This uses https://github.com/Bjorn248/graphql_aws_pricing_api to get pricing data
+
 Designed to analyze terraform template files and return a cost estimate of running the infrastructure, assuming AWS is the target cloud. Perhaps other clouds can be supported going forward?
 
 This is very much in a prototype state right now. Any advice or assistance is appreciated.
