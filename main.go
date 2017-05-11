@@ -3,14 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/hashicorp/hcl"
+	"github.com/hashicorp/terraform/terraform"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -81,31 +79,23 @@ func main() {
 		log.Fatal("AWS_REGION not set")
 	}
 
-	pattern := ""
-	if os.Getenv("GLOB_PATTERN") == "" {
-		pattern = "*.tf"
+	var terraformPlanFile string
+	if os.Getenv("TERRAFORM_PLANFILE") == "" {
+		log.Fatal("TERRAFORM_PLANFILE not set")
 	} else {
-		pattern = os.Getenv("GLOB_PATTERN")
-	}
-
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		fmt.Printf("Error reading files: '%s'", err)
+		terraformPlanFile = os.Getenv("TERRAFORM_PLANFILE")
 	}
 
 	masterResourceMap := resourceMap{
 		Resources: map[string]map[string]int{
-			"aws_instance":    {"r4.xlarge": 0},
+			"aws_instance":    {"r4.xlarge,Shared": 0},
 			"aws_db_instance": {"db.r4.xlarge,mysql,Single-AZ": 0},
 		},
 	}
 
-	for _, filePath := range matches {
-		masterResourceMap, err = processTerraformFile(masterResourceMap, filePath)
-		if err != nil {
-			fmt.Printf("Error processing terraform file: '%s'\n", err)
-		}
-	}
+	var err error
+
+	masterResourceMap, err = processTerraformPlan(masterResourceMap, terraformPlanFile)
 
 	graphQLQueryString, err := generateGraphQLQuery(masterResourceMap)
 	if err != nil {
@@ -204,101 +194,51 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 	return returnArray, nil
 }
 
-// This takes a terraform file and adds it to the global resource map used to shape the GraphQL query
-func processTerraformFile(masterResourceMap resourceMap, filePath string) (resourceMap, error) {
-	file, err := ioutil.ReadFile(filePath)
+func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resourceMap, error) {
+	file, err := os.Open(planFile)
 	if err != nil {
 		return masterResourceMap, err
 	}
 
-	var decodedOutput map[string]interface{}
-
-	unmarshalErr := hcl.Unmarshal(file, &decodedOutput)
-	if unmarshalErr != nil {
-		fmt.Println("Error decoding HCL")
-		return masterResourceMap, unmarshalErr
+	plan, planErr := terraform.ReadPlan(file)
+	if planErr != nil {
+		return masterResourceMap, err
 	}
 
-	arrayOfResources, success := decodedOutput["resource"].([]map[string]interface{})
-
-	if !success {
-		return masterResourceMap, errors.New("Could not find resources in " + filePath)
-	}
-	for _, resource := range arrayOfResources {
-		for terraformResource := range resource {
-			switch terraformResource {
-			case "aws_instance":
-				if ec2, ok := resource[terraformResource].([]map[string]interface{}); ok {
-					masterResourceMap, err = processEc2Instance(ec2, masterResourceMap, terraformResource)
-					if err != nil {
-						return masterResourceMap, err
-					}
-				} else {
-					return masterResourceMap, errors.New("Typecast error with " + filePath)
-				}
-			case "aws_db_instance":
-				if rds, ok := resource[terraformResource].([]map[string]interface{}); ok {
-					masterResourceMap, err = processRdsInstance(rds, masterResourceMap, terraformResource)
-					if err != nil {
-						return masterResourceMap, err
-					}
-				} else {
-					return masterResourceMap, errors.New("Typecast error with " + filePath)
-				}
-			default:
-				fmt.Println("resource type not recognized: ", terraformResource)
-			}
-		}
-	}
-	return masterResourceMap, nil
-}
-
-func processEc2Instance(ec2 []map[string]interface{}, masterResourceMap resourceMap, terraformResource string) (resourceMap, error) {
-	for key := range ec2[0] {
-		if ec2Instance, ok := ec2[0][key].([]map[string]interface{}); ok {
-			var instanceType, tenancy string
-			instanceType = fmt.Sprint(ec2Instance[0]["instance_type"])
-			tenancy = fmt.Sprint(ec2Instance[0]["tenancy"])
-			// NOTE Host tenancy is currently not supported
-			// If there is a need, it can be implemented
-			if tenancy == "dedicated" {
-				tenancy = "Dedicated"
+	for resource, instanceDiff := range plan.Diff.Modules[0].Resources {
+		resourceType := strings.Split(resource, ".")[0]
+		switch resourceType {
+		case "aws_instance":
+			var resourceMapKey string
+			if instanceDiff.Attributes["tenancy"].New == "dedicated" {
+				resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Dedicated"
 			} else {
-				tenancy = "Shared"
+				resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Shared"
 			}
-			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceType+","+tenancy)
-		} else {
-			return masterResourceMap, errors.New("Typecast error for ec2 instance")
-		}
-	}
-	return masterResourceMap, nil
-}
-
-func processRdsInstance(rds []map[string]interface{}, masterResourceMap resourceMap, terraformResource string) (resourceMap, error) {
-	for key := range rds[0] {
-		if rdsInstance, ok := rds[0][key].([]map[string]interface{}); ok {
-			var instanceClass, engine, deploymentOption string
-			instanceClass = fmt.Sprint(rdsInstance[0]["instance_class"])
-			engine = fmt.Sprint(rdsInstance[0]["engine"])
-			deploymentOption = fmt.Sprint(rdsInstance[0]["multi_az"])
-			if deploymentOption == "true" {
-				deploymentOption = "Multi-AZ"
+			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
+		case "aws_db_instance":
+			var resourceMapKey string
+			if instanceDiff.Attributes["multi_az"].New == "true" {
+				resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Multi-AZ"
 			} else {
-				deploymentOption = "Single-AZ"
+				resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Single-AZ"
 			}
-			masterResourceMap = countResource(masterResourceMap, terraformResource, instanceClass+","+engine+","+deploymentOption)
-		} else {
-			return masterResourceMap, errors.New("Typecast error for rds instance")
+			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
+		default:
+			fmt.Println("resource type not recognized: ", resourceType)
 		}
 	}
+
 	return masterResourceMap, nil
 }
 
-func countResource(masterResourceMap resourceMap, resourceName string, resourceType string) resourceMap {
-	if count := masterResourceMap.Resources[resourceName][resourceType]; count == 0 {
-		masterResourceMap.Resources[resourceName][resourceType] = 1
+// This takes a terraform file and adds it to the global resource map used to shape the GraphQL query
+
+func countResource(masterResourceMap resourceMap, resourceType string, resourceDescription string) resourceMap {
+	if count := masterResourceMap.Resources[resourceType][resourceDescription]; count == 0 {
+		masterResourceMap.Resources[resourceType][resourceDescription] = 1
 	} else {
-		masterResourceMap.Resources[resourceName][resourceType] = count + 1
+		masterResourceMap.Resources[resourceType][resourceDescription] = count + 1
 	}
 	return masterResourceMap
 }

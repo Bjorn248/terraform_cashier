@@ -76,8 +76,8 @@ func TestCalculateInfraCost(t *testing.T) {
 				"m4.xlarge,Shared":    1,
 			},
 			"aws_db_instance": {
-				"db.r4.xlarge,mysql,Single-AZ": 3,
-				"db.t2.large,mysql,Multi-AZ":   1,
+				"db.t2.large,mysql,Single-AZ": 2,
+				"db.t2.large,mysql,Multi-AZ":  1,
 			},
 		},
 	}
@@ -86,8 +86,15 @@ func TestCalculateInfraCost(t *testing.T) {
 	var err error
 
 	resourceCostMapArray, err = calculateInfraCost(mockResponse, mockTerraformResources)
-	if resourceCostMapArray[0].Total != 2.7872 {
-		t.Error("Expected 2.7872, got ", resourceCostMapArray[0].Total)
+	switch resourceCostMapArray[0].Name {
+	case "aws_instance":
+		if resourceCostMapArray[0].Total != 2.7872 {
+			t.Error("Expected 2.7872, got ", resourceCostMapArray[0].Total)
+		}
+	case "aws_db_instance":
+		if resourceCostMapArray[0].Total != 0.712 {
+			t.Error("Expected 0.712, got ", resourceCostMapArray[0].Total)
+		}
 	}
 	if err != nil {
 		t.Error("Something went wrong", err)
@@ -109,33 +116,19 @@ func TestProcessTerraformFile(t *testing.T) {
 		},
 	}
 
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/terraform_example.tf")
+	mockTerraformResources, err = processTerraformPlan(mockTerraformResources, "test/test.plan")
 	if err != nil {
-		t.Error("error processing files", err)
+		t.Error("error processing test/test.plan", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/terraform_example_2.tf")
+
+	mockTerraformResources, err = processTerraformPlan(mockTerraformResources, "test/test.plan.bad")
 	if err != nil {
-		t.Error("error processing files", err)
+		t.Error("error processing test/test.plan.bad", err)
 	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/variables.tf")
-	if err.Error() != "Could not find resources in test/variables.tf" {
-		t.Error("Expected a different error string", err)
-	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/does_not_exist.tf")
-	if err.Error() != "open test/does_not_exist.tf: no such file or directory" {
-		t.Error("Expected a different error string", err)
-	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/bad_formatting.tf")
-	if err.Error() != "At 2:17: literal not terminated" {
-		t.Error("Expected a different error string", err)
-	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/rds.tf")
-	if err != nil {
-		t.Error("error processing test/rds.tf", err)
-	}
-	mockTerraformResources, err = processTerraformFile(mockTerraformResources, "test/ec2_dedicated.tf")
-	if err != nil {
-		t.Error("error processing test/ec2_dedicated.tf", err)
+
+	mockTerraformResources, err = processTerraformPlan(mockTerraformResources, "test/does_not_exist.plan")
+	if err.Error() != "open test/does_not_exist.plan: no such file or directory" {
+		t.Error("Did not get expected error message", err)
 	}
 
 	if mockTerraformResources.Resources["aws_instance"]["r3.xlarge,Shared"] != 3 ||
