@@ -15,6 +15,9 @@ This relies on terraform plan files generated using `terraform plan -out=<filena
 It is recommended that you plan against an empty state so that all of your resources
 are present in the plan file.
 
+### Empty/Blank state plan
+If you are using remote state, you will need to disable this. I accomplish this by renaming the file that defines my remote state, appending the extension `.off`. Then, I have to run `terraform init` again to initialize a blank local state. Then I can generate a plan that contains all my resources using the following command `terraform plan -out=<filename> -refresh=false`.
+
 ## Environment Variables
 Variable Name | Description
 ------------ | -------------
