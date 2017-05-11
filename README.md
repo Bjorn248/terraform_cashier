@@ -10,9 +10,14 @@ Designed to analyze terraform template files and return a cost estimate of runni
 
 This is very much in a prototype state right now. Any advice or assistance is appreciated.
 
+## Plan File
+This relies on terraform plan files generated using `terraform plan -out=<filename>`.
+It is recommended that you plan against an empty state so that all of your resources
+are present in the plan file.
+
 ## Environment Variables
 Variable Name | Description
 ------------ | -------------
 AWS_REGION | The Region for which you want to create a price estimation (e.g. `us-east-1`)
-GLOB_PATTERN | (Optional) Where cashier should find your terraform files. Defaults to `*.tf`
+TERRAFORM_PLANFILE | Where cashier should find your terraform plan output.
 RUNNING_HOURS | (Optional) The number of running hours normally used in a month for your resources, on average. Defaults to 730 assuming 24/7 operation.
