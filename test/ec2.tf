@@ -117,3 +117,5 @@ resource "aws_instance" "shared8" {
     iops = 250
   }
 }
+
+resource "null_resource" "for_tests" {}
