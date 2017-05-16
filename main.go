@@ -200,8 +200,8 @@ func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resou
 		return masterResourceMap, err
 	}
 
-	plan, planErr := terraform.ReadPlan(file)
-	if planErr != nil {
+	plan, err := terraform.ReadPlan(file)
+	if err != nil {
 		return masterResourceMap, err
 	}
 

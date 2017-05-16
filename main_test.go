@@ -122,8 +122,8 @@ func TestProcessTerraformFile(t *testing.T) {
 	}
 
 	mockTerraformResources, err = processTerraformPlan(mockTerraformResources, "test/test.plan.bad")
-	if err != nil {
-		t.Error("error processing test/test.plan.bad", err)
+	if err.Error() != "not a valid plan file" {
+		t.Error("expected: not a valid plan file\ngot:", err)
 	}
 
 	mockTerraformResources, err = processTerraformPlan(mockTerraformResources, "test/does_not_exist.plan")
