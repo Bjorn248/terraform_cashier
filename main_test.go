@@ -88,8 +88,8 @@ func TestCalculateInfraCost(t *testing.T) {
 	resourceCostMapArray, err = calculateInfraCost(mockResponse, mockTerraformResources)
 	switch resourceCostMapArray[0].Name {
 	case "aws_instance":
-		if resourceCostMapArray[0].Total != 2.7872 {
-			t.Error("Expected 2.7872, got ", resourceCostMapArray[0].Total)
+		if resourceCostMapArray[0].Total != 4.7872 {
+			t.Error("Expected 4.7872, got ", resourceCostMapArray[0].Total)
 		}
 	case "aws_db_instance":
 		if resourceCostMapArray[0].Total != 0.712 {

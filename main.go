@@ -166,6 +166,7 @@ func main() {
 // map of terraform resources. Basically, we're just iterating over some maps here...
 func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources resourceMap) ([]resourceCostMap, error) {
 	var returnArray []resourceCostMap
+	var oneDedicatedEc2 = false
 
 	for resourceName, resourceTypes := range terraformResources.Resources {
 		var resourceSpecificCostMap resourceCostMap
@@ -183,6 +184,10 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 				}
 			}
 			resourceSpecificCostMap.Resources[resourceType] = (float32(price) * float32(count))
+			if oneDedicatedEc2 == false && resourceName == "aws_instance" && strings.Split(resourceType, ",")[1] == "Dedicated" {
+				resourceSpecificCostMap.Resources["DedicatedPerRegionFee"] = 2.00
+				oneDedicatedEc2 = true
+			}
 		}
 		var runningTotalCost float32
 		for _, cost := range resourceSpecificCostMap.Resources {
