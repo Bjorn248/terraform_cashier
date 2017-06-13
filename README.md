@@ -4,7 +4,7 @@
 [![Build Status](https://travis-ci.org/BjornTwitchBot/terraform_cashier.svg?branch=master)](https://travis-ci.org/BjornTwitchBot/terraform_cashier)
 [![codecov](https://codecov.io/gh/BjornTwitchBot/terraform_cashier/branch/master/graph/badge.svg)](https://codecov.io/gh/BjornTwitchBot/terraform_cashier)
 
-This uses https://github.com/Bjorn248/graphql_aws_pricing_api to get pricing data
+This uses [https://github.com/Bjorn248/graphql_aws_pricing_api](https://github.com/Bjorn248/graphql_aws_pricing_api) to get pricing data
 
 Designed to analyze terraform template files and return a cost estimate of running the infrastructure, assuming AWS is the target cloud. Perhaps other clouds can be supported going forward?
 
@@ -24,3 +24,7 @@ Variable Name | Description
 AWS_REGION | The Region for which you want to create a price estimation (e.g. `us-east-1`)
 TERRAFORM_PLANFILE | Where cashier should find your terraform plan output.
 RUNNING_HOURS | (Optional) The number of running hours normally used in a month for your resources, on average. Defaults to 730 assuming 24/7 operation.
+
+## Local Development
+This project uses [https://github.com/kardianos/govendor](https://github.com/kardianos/govendor) for dependency management.
+Be sure to install all required dependencies to build this locally using `govendor sync`.
