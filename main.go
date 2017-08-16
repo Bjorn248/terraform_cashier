@@ -210,27 +210,29 @@ func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resou
 		return masterResourceMap, err
 	}
 
-	for resource, instanceDiff := range plan.Diff.Modules[0].Resources {
-		resourceType := strings.Split(resource, ".")[0]
-		switch resourceType {
-		case "aws_instance":
-			var resourceMapKey string
-			if instanceDiff.Attributes["tenancy"].New == "dedicated" {
-				resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Dedicated"
-			} else {
-				resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Shared"
+	for moduleIdx := range plan.Diff.Modules {
+		for resource, instanceDiff := range plan.Diff.Modules[moduleIdx].Resources {
+			resourceType := strings.Split(resource, ".")[0]
+			switch resourceType {
+			case "aws_instance":
+				var resourceMapKey string
+				if instanceDiff.Attributes["tenancy"].New == "dedicated" {
+					resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Dedicated"
+				} else {
+					resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Shared"
+				}
+				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
+			case "aws_db_instance":
+				var resourceMapKey string
+				if instanceDiff.Attributes["multi_az"].New == "true" {
+					resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Multi-AZ"
+				} else {
+					resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Single-AZ"
+				}
+				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
+			default:
+				fmt.Println("resource type not recognized: ", resourceType)
 			}
-			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
-		case "aws_db_instance":
-			var resourceMapKey string
-			if instanceDiff.Attributes["multi_az"].New == "true" {
-				resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Multi-AZ"
-			} else {
-				resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Single-AZ"
-			}
-			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
-		default:
-			fmt.Println("resource type not recognized: ", resourceType)
 		}
 	}
 
