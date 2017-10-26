@@ -24,6 +24,7 @@ Variable Name | Description
 AWS_REGION | The Region for which you want to create a price estimation (e.g. `us-east-1`)
 TERRAFORM_PLANFILE | Where cashier should find your terraform plan output.
 RUNNING_HOURS | (Optional) The number of running hours normally used in a month for your resources, on average. Defaults to 730 assuming 24/7 operation.
+PRINT_VERSION | (Optional) If `true` will print current version of cashier and exit
 
 ## Local Development
 This project uses [https://github.com/kardianos/govendor](https://github.com/kardianos/govendor) for dependency management.
