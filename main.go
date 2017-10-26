@@ -72,8 +72,17 @@ var regionMap = map[string]string{
 // See https://github.com/Bjorn248/graphql_aws_pricing_api for the code of this API
 const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
+// Should match the git tagged release
+const version = "0.5"
+
 func main() {
 	// notest
+
+	if os.Getenv("PRINT_VERSION") == "true" {
+		fmt.Println("Terraform Cashier")
+		fmt.Printf("Version: %s\n", version)
+		os.Exit(0)
+	}
 
 	if os.Getenv("AWS_REGION") == "" {
 		log.Fatal("AWS_REGION not set")
