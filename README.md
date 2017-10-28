@@ -26,6 +26,22 @@ TERRAFORM_PLANFILE | Where cashier should find your terraform plan output.
 RUNNING_HOURS | (Optional) The number of running hours normally used in a month for your resources, on average. Defaults to 730 assuming 24/7 operation.
 PRINT_VERSION | (Optional) If `true` will print current version of cashier and exit
 
+## Installation and usage
+Simply download the latest release from the releases page here: [https://github.com/Bjorn248/terraform_cashier/releases](https://github.com/Bjorn248/terraform_cashier/releases)
+Make sure that the binary is set executable
+Set your environment variables appropriately
+```
+export TERRAFORM_PLANFILE="./terraform.plan"
+export AWS_REGION="us-west-1"
+```
+And then run the `cashier` binary
+
+If you wish to see the current version of cashier, use the following environment variable
+```
+PRINT_VERSION=true
+```
+
+
 ## Local Development
 This project uses [https://github.com/kardianos/govendor](https://github.com/kardianos/govendor) for dependency management.
 Be sure to install all required dependencies to build this locally using `govendor sync`.
