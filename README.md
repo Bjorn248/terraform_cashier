@@ -8,6 +8,8 @@ This uses [https://github.com/Bjorn248/graphql_aws_pricing_api](https://github.c
 
 Designed to analyze terraform template files and return a cost estimate of running the infrastructure, assuming AWS is the target cloud. Perhaps other clouds can be supported going forward?
 
+**NOTE**: This only calculates the cost of EC2 and RDS resources right now. To add support for more resources, open a PR or leave a comment. I'm always looking for feedback.
+
 This is very much in a prototype state right now. Any advice or assistance is appreciated.
 
 ## Plan File
