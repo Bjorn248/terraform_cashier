@@ -53,6 +53,7 @@ var resourceTypesToFriendlyNames = map[string]string{
 
 var regionMap = map[string]string{
 	"us-gov-west-1":  "AWS GovCloud (US)",
+	"us-gov-east-1":  "AWS GovCloud (US-East)",
 	"us-east-1":      "US East (N. Virginia)",
 	"us-east-2":      "US East (Ohio)",
 	"us-west-1":      "US West (N. California)",
@@ -64,6 +65,7 @@ var regionMap = map[string]string{
 	"eu-west-1":      "EU (Ireland)",
 	"eu-west-2":      "EU (London)",
 	"eu-west-3":      "EU (Paris)",
+	"eu-north-1":     "EU (Stockholm)",
 	"ap-northeast-1": "Asia Pacific (Tokyo)",
 	"ap-northeast-2": "Asia Pacific (Seoul)",
 	"ap-northeast-3": "Asia Pacific (Osaka-Local)",
