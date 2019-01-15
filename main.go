@@ -42,7 +42,7 @@ type resourceMap struct {
 
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
-	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
+	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", PreInstalledSW:\"NA\", CapacityStatus:\"Used\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
 	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", DeploymentOption:\"%s\", DatabaseEngine:\"%s\") {PricePerUnit Unit Currency}",
 }
 
@@ -60,7 +60,7 @@ var regionMap = map[string]string{
 	"us-west-2":      "US West (Oregon)",
 	"ca-central-1":   "Canada (Central)",
 	"cn-north-1":     "China (Beijing)",
-	"cn-north-2":     "China (Ningxia)",
+	"cn-northwest-1": "China (Ningxia)",
 	"eu-central-1":   "EU (Frankfurt)",
 	"eu-west-1":      "EU (Ireland)",
 	"eu-west-2":      "EU (London)",
@@ -79,7 +79,7 @@ var regionMap = map[string]string{
 const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
 // Should match the git tagged release
-const version = "0.5"
+const version = "0.6"
 
 func main() {
 	// notest
