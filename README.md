@@ -25,6 +25,24 @@ AWS_REGION | The Region for which you want to create a price estimation (e.g. `u
 TERRAFORM_PLANFILE | Where cashier should find your terraform plan output.
 RUNNING_HOURS | (Optional) The number of running hours normally used in a month for your resources, on average. Defaults to 730 assuming 24/7 operation.
 
+## Docker 
+The Docker image is not published on Docker Hub or any other registry provider, although you can build and use it locally.
+
+*Build*
+```
+$ docker build -t local/cashier:0.0.1 .
+```
+
+*Run*
+```
+$ docker run -v $(pwd):/data local/cashier:0.0.1
+```
+
+*Run using custom ENV_VARs*
+```
+$ docker run --env AWS_REGION=us-east-1 --env TERRAFORM_PLANFILE=/data/terraform.plan -v $(pwd):/data local/cashier:0.0.1
+```
+
 ## Local Development
 This project uses [https://github.com/kardianos/govendor](https://github.com/kardianos/govendor) for dependency management.
 Be sure to install all required dependencies to build this locally using `govendor sync`.
