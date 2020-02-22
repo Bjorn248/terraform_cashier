@@ -42,7 +42,7 @@ type resourceMap struct {
 
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
-	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
+	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", PreInstalledSW:\"NA\", CapacityStatus:\"Used\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
 	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", DeploymentOption:\"%s\", DatabaseEngine:\"%s\") {PricePerUnit Unit Currency}",
 }
 
@@ -53,16 +53,22 @@ var resourceTypesToFriendlyNames = map[string]string{
 
 var regionMap = map[string]string{
 	"us-gov-west-1":  "AWS GovCloud (US)",
+	"us-gov-east-1":  "AWS GovCloud (US-East)",
 	"us-east-1":      "US East (N. Virginia)",
 	"us-east-2":      "US East (Ohio)",
 	"us-west-1":      "US West (N. California)",
 	"us-west-2":      "US West (Oregon)",
 	"ca-central-1":   "Canada (Central)",
-	"eu-west-1":      "EU (Ireland)",
+	"cn-north-1":     "China (Beijing)",
+	"cn-northwest-1": "China (Ningxia)",
 	"eu-central-1":   "EU (Frankfurt)",
+	"eu-west-1":      "EU (Ireland)",
 	"eu-west-2":      "EU (London)",
+	"eu-west-3":      "EU (Paris)",
+	"eu-north-1":     "EU (Stockholm)",
 	"ap-northeast-1": "Asia Pacific (Tokyo)",
 	"ap-northeast-2": "Asia Pacific (Seoul)",
+	"ap-northeast-3": "Asia Pacific (Osaka-Local)",
 	"ap-southeast-1": "Asia Pacific (Singapore)",
 	"ap-southeast-2": "Asia Pacific (Sydney)",
 	"ap-south-1":     "Asia Pacific (Mumbai)",
@@ -72,8 +78,17 @@ var regionMap = map[string]string{
 // See https://github.com/Bjorn248/graphql_aws_pricing_api for the code of this API
 const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
+// Should match the git tagged release
+const version = "0.6"
+
 func main() {
 	// notest
+
+	if os.Getenv("PRINT_VERSION") == "true" {
+		fmt.Println("Terraform Cashier")
+		fmt.Printf("Version: %s\n", version)
+		os.Exit(0)
+	}
 
 	if os.Getenv("AWS_REGION") == "" {
 		log.Fatal("AWS_REGION not set")
