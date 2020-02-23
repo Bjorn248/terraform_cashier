@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform/plans/planfile"
+	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -111,10 +112,13 @@ func main() {
 	var err error
 
 	masterResourceMap, err = processTerraformPlan(masterResourceMap, terraformPlanFile)
+	if err != nil {
+		fmt.Printf("Error processing terraform plan: '%s'\n", err)
+	}
 
 	graphQLQueryString, err := generateGraphQLQuery(masterResourceMap)
 	if err != nil {
-		fmt.Printf("Error generating GraphQL Query: '%s'", err)
+		fmt.Printf("Error generating GraphQL Query: '%s'\n", err)
 	}
 	// We want a high timeout because the lambda function
 	// needs at least 1 request to warm up. The first request
@@ -215,41 +219,51 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 }
 
 func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resourceMap, error) {
-	file, err := os.Open(planFile)
+	file, err := planfile.Open(planFile)
 	if err != nil {
 		return masterResourceMap, err
 	}
 
-	plan, err := terraform.ReadPlan(file)
+	plan, err := file.ReadPlan()
 	if err != nil {
 		return masterResourceMap, err
 	}
 
-	for moduleIdx := range plan.Diff.Modules {
-		for resource, instanceDiff := range plan.Diff.Modules[moduleIdx].Resources {
+	decodedStruct, err := plan.Changes.Resources[1].Decode(cty.DynamicVal)
+
+	fmt.Printf("%+v\n", decodedStruct)
+
+	os.Exit(0)
+
+	for _, resource := range plan.Changes.Resources {
+		fmt.Printf("%+v\n", resource.Addr)
+	}
+
+	/*
+		for resource, instanceChanges := range plan.Changes.Resources {
 			resourceType := strings.Split(resource, ".")[0]
 			switch resourceType {
 			case "aws_instance":
 				var resourceMapKey string
-				if instanceDiff.Attributes["tenancy"].New == "dedicated" {
-					resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Dedicated"
+				if instanceChanges.Attributes["tenancy"].New == "dedicated" {
+					resourceMapKey = instanceChanges.Attributes["instance_type"].New + ",Dedicated"
 				} else {
-					resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Shared"
+					resourceMapKey = instanceChanges.Attributes["instance_type"].New + ",Shared"
 				}
 				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
 			case "aws_db_instance":
 				var resourceMapKey string
-				if instanceDiff.Attributes["multi_az"].New == "true" {
-					resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Multi-AZ"
+				if instanceChanges.Attributes["multi_az"].New == "true" {
+					resourceMapKey = instanceChanges.Attributes["instance_class"].New + "," + instanceChanges.Attributes["engine"].New + ",Multi-AZ"
 				} else {
-					resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Single-AZ"
+					resourceMapKey = instanceChanges.Attributes["instance_class"].New + "," + instanceChanges.Attributes["engine"].New + ",Single-AZ"
 				}
 				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
 			default:
 				fmt.Println("resource type not recognized: ", resourceType)
 			}
 		}
-	}
+	*/
 
 	return masterResourceMap, nil
 }
