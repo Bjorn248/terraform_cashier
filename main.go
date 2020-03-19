@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform/plans/planfile"
-	"github.com/zclconf/go-cty/cty"
+	// "github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -229,9 +230,30 @@ func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resou
 		return masterResourceMap, err
 	}
 
-	decodedStruct, err := plan.Changes.Resources[1].Decode(cty.DynamicVal)
+	for _, resource := range plan.Changes.Resources {
+		ty, err := resource.ChangeSrc.After.ImpliedType()
+		if err != nil {
+			return masterResourceMap, err
+		}
+		fmt.Printf("%+v\n", ty)
+		value, err := resource.ChangeSrc.After.Decode(ty)
+		if err != nil {
+			return masterResourceMap, err
+		}
+		fmt.Printf("HERE'S A NEW RESOURCE\n")
+		// fmt.Printf("%+v\n", value)
+		spew.Dump(value)
 
-	fmt.Printf("%+v\n", decodedStruct)
+		resourceType := strings.Split(resource.Addr.String(), ".")[0]
+		switch resourceType {
+		case "aws_instance":
+			fmt.Println("EC2 Instance")
+		case "aws_db_instance":
+			fmt.Println("RDS Instance")
+		default:
+			fmt.Println("resource type not recognized: ", resourceType)
+		}
+	}
 
 	os.Exit(0)
 
