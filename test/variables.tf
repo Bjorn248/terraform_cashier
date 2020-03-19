@@ -1,5 +1,5 @@
 variable "unit_tests" {
-  type = "string"
+  type = string
 
   default = "hi"
 }

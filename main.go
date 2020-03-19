@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform/plans/planfile"
+	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -43,7 +44,7 @@ type resourceMap struct {
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
 	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", PreInstalledSW:\"NA\", CapacityStatus:\"Used\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
-	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", DeploymentOption:\"%s\", DatabaseEngine:\"%s\") {PricePerUnit Unit Currency}",
+	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", Deployment_Option:\"%s\", Database_Engine:\"%s\") {PricePerUnit Unit Currency}",
 }
 
 var resourceTypesToFriendlyNames = map[string]string{
@@ -76,7 +77,7 @@ var regionMap = map[string]string{
 }
 
 // See https://github.com/Bjorn248/graphql_aws_pricing_api for the code of this API
-const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
+const apiURL = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
 // Should match the git tagged release
 const version = "0.6"
@@ -111,10 +112,13 @@ func main() {
 	var err error
 
 	masterResourceMap, err = processTerraformPlan(masterResourceMap, terraformPlanFile)
+	if err != nil {
+		fmt.Printf("Error processing terraform plan: '%s'\n", err)
+	}
 
 	graphQLQueryString, err := generateGraphQLQuery(masterResourceMap)
 	if err != nil {
-		fmt.Printf("Error generating GraphQL Query: '%s'", err)
+		fmt.Printf("Error generating GraphQL Query: '%s'\n", err)
 	}
 	// We want a high timeout because the lambda function
 	// needs at least 1 request to warm up. The first request
@@ -127,7 +131,7 @@ func main() {
 
 	fmt.Println("Calling GraphQL Pricing API...")
 
-	resp, err := client.Post(apiUrl, "application/json", bytes.NewBuffer([]byte(graphQLQueryString)))
+	resp, err := client.Post(apiURL, "application/json", bytes.NewBuffer([]byte(graphQLQueryString)))
 	if err != nil {
 		fmt.Printf("Error making request to Pricing API: '%s'", err)
 	}
@@ -215,39 +219,48 @@ func calculateInfraCost(pricingData graphQLHTTPResponseBody, terraformResources 
 }
 
 func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resourceMap, error) {
-	file, err := os.Open(planFile)
+	file, err := planfile.Open(planFile)
 	if err != nil {
 		return masterResourceMap, err
 	}
 
-	plan, err := terraform.ReadPlan(file)
+	plan, err := file.ReadPlan()
 	if err != nil {
 		return masterResourceMap, err
 	}
 
-	for moduleIdx := range plan.Diff.Modules {
-		for resource, instanceDiff := range plan.Diff.Modules[moduleIdx].Resources {
-			resourceType := strings.Split(resource, ".")[0]
-			switch resourceType {
-			case "aws_instance":
-				var resourceMapKey string
-				if instanceDiff.Attributes["tenancy"].New == "dedicated" {
-					resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Dedicated"
-				} else {
-					resourceMapKey = instanceDiff.Attributes["instance_type"].New + ",Shared"
-				}
-				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
-			case "aws_db_instance":
-				var resourceMapKey string
-				if instanceDiff.Attributes["multi_az"].New == "true" {
-					resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Multi-AZ"
-				} else {
-					resourceMapKey = instanceDiff.Attributes["instance_class"].New + "," + instanceDiff.Attributes["engine"].New + ",Single-AZ"
-				}
-				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
-			default:
-				fmt.Println("resource type not recognized: ", resourceType)
+	for _, resource := range plan.Changes.Resources {
+		ty, err := resource.ChangeSrc.After.ImpliedType()
+		if err != nil {
+			return masterResourceMap, err
+		}
+		value, err := resource.ChangeSrc.After.Decode(ty)
+		if err != nil {
+			return masterResourceMap, err
+		}
+
+		valueMap := value.AsValueMap()
+
+		resourceType := strings.Split(resource.Addr.String(), ".")[0]
+		switch resourceType {
+		case "aws_instance":
+			var resourceMapKey string
+			if valueMap["tenancy"].Equals(cty.StringVal("dedicated")) == cty.True {
+				resourceMapKey = valueMap["instance_type"].AsString() + ",Dedicated"
+			} else {
+				resourceMapKey = valueMap["instance_type"].AsString() + ",Shared"
 			}
+			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
+		case "aws_db_instance":
+			var resourceMapKey string
+			if valueMap["multi_az"].Equals(cty.True) == cty.True {
+				resourceMapKey = valueMap["instance_class"].AsString() + "," + valueMap["engine"].AsString() + ",Multi-AZ"
+			} else {
+				resourceMapKey = valueMap["instance_class"].AsString() + "," + valueMap["engine"].AsString() + ",Single-AZ"
+			}
+			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
+		default:
+			fmt.Println("resource type not recognized: ", resourceType)
 		}
 	}
 
