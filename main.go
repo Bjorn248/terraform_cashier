@@ -80,7 +80,7 @@ var regionMap = map[string]string{
 const apiURL = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
 // Should match the git tagged release
-const version = "0.6"
+const version = "0.7"
 
 func main() {
 	// notest
