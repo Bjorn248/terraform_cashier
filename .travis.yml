@@ -3,8 +3,8 @@ go:
   - 1.x
 install:
   - go get -u github.com/dave/courtney
-  - go get -u github.com/kardianos/govendor
-  - govendor sync
+  - go build
+  - go test
 script:
   - courtney -t="-race" -v
 after_success:
