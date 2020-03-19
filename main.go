@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform/plans/planfile"
-	// "github.com/zclconf/go-cty/cty"
+	// "regexp"
+	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -78,7 +79,7 @@ var regionMap = map[string]string{
 }
 
 // See https://github.com/Bjorn248/graphql_aws_pricing_api for the code of this API
-const apiUrl = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
+const apiURL = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 
 // Should match the git tagged release
 const version = "0.6"
@@ -132,7 +133,7 @@ func main() {
 
 	fmt.Println("Calling GraphQL Pricing API...")
 
-	resp, err := client.Post(apiUrl, "application/json", bytes.NewBuffer([]byte(graphQLQueryString)))
+	resp, err := client.Post(apiURL, "application/json", bytes.NewBuffer([]byte(graphQLQueryString)))
 	if err != nil {
 		fmt.Printf("Error making request to Pricing API: '%s'", err)
 	}
@@ -235,14 +236,24 @@ func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resou
 		if err != nil {
 			return masterResourceMap, err
 		}
-		fmt.Printf("%+v\n", ty)
 		value, err := resource.ChangeSrc.After.Decode(ty)
 		if err != nil {
 			return masterResourceMap, err
 		}
 		fmt.Printf("HERE'S A NEW RESOURCE\n")
-		// fmt.Printf("%+v\n", value)
-		spew.Dump(value)
+		// spew.Printf("%#+v\n", value)
+
+		err = cty.Walk(value, func(path cty.Path, val cty.Value) (bool, error) {
+			fmt.Println("Path")
+			fmt.Println(path)
+			fmt.Println("Value")
+			fmt.Println(val)
+			return true, nil
+		})
+
+		// valueRe := regexp.MustCompile(`(string) (len=\d+) ".+": `)
+
+		// fmt.Println(tenancyRe.FindString(stringValue))
 
 		resourceType := strings.Split(resource.Addr.String(), ".")[0]
 		switch resourceType {
