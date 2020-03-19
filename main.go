@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	// "github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/terraform/plans/planfile"
-	// "regexp"
 	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"log"
@@ -46,7 +44,7 @@ type resourceMap struct {
 var knownResourceTypes = map[string]string{
 	// Using query aliases to get the pricing data for different types of instances at the same time
 	"aws_instance":    "%s: AmazonEC2(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", OS:\"Linux\", PreInstalledSW:\"NA\", CapacityStatus:\"Used\", Tenancy:\"%s\") {PricePerUnit Unit Currency}",
-	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", DeploymentOption:\"%s\", DatabaseEngine:\"%s\") {PricePerUnit Unit Currency}",
+	"aws_db_instance": "%s: AmazonRDS(Location:\"%s\", TermType:\"%s\", InstanceType:\"%s\", Deployment_Option:\"%s\", Database_Engine:\"%s\") {PricePerUnit Unit Currency}",
 }
 
 var resourceTypesToFriendlyNames = map[string]string{
@@ -240,63 +238,31 @@ func processTerraformPlan(masterResourceMap resourceMap, planFile string) (resou
 		if err != nil {
 			return masterResourceMap, err
 		}
-		fmt.Printf("HERE'S A NEW RESOURCE\n")
-		// spew.Printf("%#+v\n", value)
 
-		err = cty.Walk(value, func(path cty.Path, val cty.Value) (bool, error) {
-			fmt.Println("Path")
-			fmt.Println(path)
-			fmt.Println("Value")
-			fmt.Println(val)
-			return true, nil
-		})
-
-		// valueRe := regexp.MustCompile(`(string) (len=\d+) ".+": `)
-
-		// fmt.Println(tenancyRe.FindString(stringValue))
+		valueMap := value.AsValueMap()
 
 		resourceType := strings.Split(resource.Addr.String(), ".")[0]
 		switch resourceType {
 		case "aws_instance":
-			fmt.Println("EC2 Instance")
+			var resourceMapKey string
+			if valueMap["tenancy"].Equals(cty.StringVal("dedicated")) == cty.True {
+				resourceMapKey = valueMap["instance_type"].AsString() + ",Dedicated"
+			} else {
+				resourceMapKey = valueMap["instance_type"].AsString() + ",Shared"
+			}
+			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
 		case "aws_db_instance":
-			fmt.Println("RDS Instance")
+			var resourceMapKey string
+			if valueMap["multi_az"].Equals(cty.True) == cty.True {
+				resourceMapKey = valueMap["instance_class"].AsString() + "," + valueMap["engine"].AsString() + ",Multi-AZ"
+			} else {
+				resourceMapKey = valueMap["instance_class"].AsString() + "," + valueMap["engine"].AsString() + ",Single-AZ"
+			}
+			masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
 		default:
 			fmt.Println("resource type not recognized: ", resourceType)
 		}
 	}
-
-	os.Exit(0)
-
-	for _, resource := range plan.Changes.Resources {
-		fmt.Printf("%+v\n", resource.Addr)
-	}
-
-	/*
-		for resource, instanceChanges := range plan.Changes.Resources {
-			resourceType := strings.Split(resource, ".")[0]
-			switch resourceType {
-			case "aws_instance":
-				var resourceMapKey string
-				if instanceChanges.Attributes["tenancy"].New == "dedicated" {
-					resourceMapKey = instanceChanges.Attributes["instance_type"].New + ",Dedicated"
-				} else {
-					resourceMapKey = instanceChanges.Attributes["instance_type"].New + ",Shared"
-				}
-				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
-			case "aws_db_instance":
-				var resourceMapKey string
-				if instanceChanges.Attributes["multi_az"].New == "true" {
-					resourceMapKey = instanceChanges.Attributes["instance_class"].New + "," + instanceChanges.Attributes["engine"].New + ",Multi-AZ"
-				} else {
-					resourceMapKey = instanceChanges.Attributes["instance_class"].New + "," + instanceChanges.Attributes["engine"].New + ",Single-AZ"
-				}
-				masterResourceMap = countResource(masterResourceMap, resourceType, resourceMapKey)
-			default:
-				fmt.Println("resource type not recognized: ", resourceType)
-			}
-		}
-	*/
 
 	return masterResourceMap, nil
 }
