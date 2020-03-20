@@ -76,11 +76,8 @@ var regionMap = map[string]string{
 	"sa-east-1":      "South America (Sao Paulo)",
 }
 
-// See https://github.com/Bjorn248/graphql_aws_pricing_api for the code of this API
-const apiURL = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
-
 // Should match the git tagged release
-const version = "0.7"
+const version = "0.8"
 
 func main() {
 	// notest
@@ -100,6 +97,14 @@ func main() {
 		log.Fatal("TERRAFORM_PLANFILE not set")
 	} else {
 		terraformPlanFile = os.Getenv("TERRAFORM_PLANFILE")
+	}
+
+	var apiURL string
+	if os.Getenv("GRAPHQL_API_URL") != "" {
+		apiURL = os.Getenv("GRAPHQL_API_URL")
+	} else {
+		// See https://github.com/Bjorn248/graphql_aws_pricing_api for the code of this API
+		apiURL = "https://fvaexi95f8.execute-api.us-east-1.amazonaws.com/Dev/graphql"
 	}
 
 	masterResourceMap := resourceMap{
