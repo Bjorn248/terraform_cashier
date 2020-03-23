@@ -67,17 +67,19 @@ var regionMap = map[string]string{
 	"eu-west-2":      "EU (London)",
 	"eu-west-3":      "EU (Paris)",
 	"eu-north-1":     "EU (Stockholm)",
+	"ap-east-1":      "Asia Pacific (Hong Kong)",
 	"ap-northeast-1": "Asia Pacific (Tokyo)",
 	"ap-northeast-2": "Asia Pacific (Seoul)",
 	"ap-northeast-3": "Asia Pacific (Osaka-Local)",
 	"ap-southeast-1": "Asia Pacific (Singapore)",
 	"ap-southeast-2": "Asia Pacific (Sydney)",
 	"ap-south-1":     "Asia Pacific (Mumbai)",
+	"me-south-1":     "Middle East (Bahrain)",
 	"sa-east-1":      "South America (Sao Paulo)",
 }
 
 // Should match the git tagged release
-const version = "0.8"
+const version = "0.9"
 
 func main() {
 	// notest
