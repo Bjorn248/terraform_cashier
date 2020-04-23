@@ -76,10 +76,11 @@ var regionMap = map[string]string{
 	"ap-south-1":     "Asia Pacific (Mumbai)",
 	"me-south-1":     "Middle East (Bahrain)",
 	"sa-east-1":      "South America (Sao Paulo)",
+	"af-south-1":     "Africa (Cape Town)",
 }
 
 // Should match the git tagged release
-const version = "0.9"
+const version = "0.10"
 
 func main() {
 	// notest
