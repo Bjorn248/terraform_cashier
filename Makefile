@@ -10,3 +10,6 @@ release:
 
 clean:
 	rm cashier*
+
+test:
+	go test -v ./...
