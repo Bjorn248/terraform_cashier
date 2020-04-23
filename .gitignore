@@ -27,3 +27,5 @@ cashier
 coverage.out
 
 vendor/*/
+
+cashier_*.tar.gz
