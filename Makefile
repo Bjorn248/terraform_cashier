@@ -13,3 +13,5 @@ clean:
 
 test:
 	go test -v ./...
+
+.PHONY: build release clean test
